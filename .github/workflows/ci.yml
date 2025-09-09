@@ -40,7 +40,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bump Maven version
-        id: bump
+        id: bump-mvn-pom
         uses: mickem/gh-action-bump-maven-version@v1
 
       - name:  Grab new patch version
