@@ -104,8 +104,7 @@ jobs:
         with:
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ steps.bump_version.outputs.ver }}
-            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
 
       - name: Print failure message if anything above failed
         if: failure()
