@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  package: write
+  packages: write
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}/simple-gh-hello
