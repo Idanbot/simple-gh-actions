@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/simple-gh-hello
+  IMAGE_NAME: ghcr.io/${{ toLower(github.repository_owner) }}/simple-gh-hello
 
 jobs:
   test:
