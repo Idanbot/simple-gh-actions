@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  package: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}/simple-gh-hello
+
+jobs:
+  test:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21 with maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run unit tests
+        run: mvn -B -q test
+
+  bump_version:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.new }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump Maven version
+        id: bump
+        uses: mickem/gh-action-bump-maven-version@v1
+
+      - name:  Grab new patch version
+        id: bump
+        shell: bash
+        run: |
+          echo "ver=$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version || true)"
+
+      - name: Create new git release tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.bump.outputs.ver }}" || true
+          git push origin "v${{ steps.bump.outputs.ver }}" || true
+
+      - name: GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.bump.outputs.ver }}
+          release_name: v${{ steps.bump.outputs.ver }}
+          draft: false
+          prerelease: false
+
+  build_verify_and_push:
+    needs: bump_version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.bump_version.outputs.ver }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image (local tag)
+        run: |
+          docker build -t local:${VERSION} .
+
+      - name: Run container & assert logs contain "Hello world"
+        shell: bash
+        run: |
+          LOGS="$(docker run --rm local:${VERSION} 2>&1 || true)"
+          echo "---- container output ----"
+          echo "$LOGS"
+          echo "--------------------------"
+          if echo "$LOGS" | grep -iq "hello world"; then
+            echo "Log assertion passed."
+          else
+            echo "::error::Build verified but expected log line 'Hello world' not found."
+            exit 1
+          fi
+
+      - name: Login to Github Container repository
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag & push to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.bump_version.outputs.ver }}
+            ${{ env.IMAGE_NAME }}:latest
+
+      - name: Print failure message if anything above failed
+        if: failure()
+        run: echo "::error::Docker build/verify/push failed."
+
