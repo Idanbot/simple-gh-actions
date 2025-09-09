@@ -33,11 +33,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.bump.outputs.new }}
+      ver: ${{ steps.bump.outputs.ver }}
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        persist-credentials: true
 
       - name: Bump Maven version
         id: bump-mvn-pom
