@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-        persist-credentials: true
+          persist-credentials: true
 
       - name: Bump Maven version
         id: bump-mvn-pom
